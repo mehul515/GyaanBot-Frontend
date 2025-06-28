@@ -32,6 +32,7 @@ import MyEnrolledCourses from "@/pages/student/MyEnrolledCourses";
 import StudentCoursePage from "@/pages/student/StudentCoursePage";
 import ChatPage from "@/pages/student/ChatPage"; // ✅ Import ChatPage
 import DashboardLayout from "./layouts/DashboardLayout";
+import NotFound from "./pages/404-not-found";
 
 export default function App() {
   const [authLoaded, setAuthLoaded] = useState(false);
@@ -124,6 +125,10 @@ export default function App() {
         <Route path="/student/my-courses" element={<PrivateRoute allowedRoles={['STUDENT']}><DashboardLayout><MyEnrolledCourses /></DashboardLayout></PrivateRoute>} />
         <Route path="/student/course/:id" element={<PrivateRoute allowedRoles={['STUDENT']}><DashboardLayout><StudentCoursePage /></DashboardLayout></PrivateRoute>} />
         <Route path="/student/chat" element={<PrivateRoute allowedRoles={['STUDENT']}><DashboardLayout><ChatPage /></DashboardLayout></PrivateRoute>} /> {/* ✅ Chat Page Route */}
+
+
+        <Route path="*" element={<NotFound/>} />
+
       </Routes>
     </ThemeProvider>
   );

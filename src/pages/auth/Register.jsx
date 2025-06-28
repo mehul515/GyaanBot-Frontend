@@ -32,7 +32,7 @@ export default function RegisterForm() {
       const res = await registerUser(form)
       if (res.status === 200) {
         localStorage.setItem("register_email", form.email)
-        navigate("/verify-email")
+        navigate("/auth/verify-email")
       }
     } catch (err) {
       setError(err.response?.data?.message || "Registration failed")

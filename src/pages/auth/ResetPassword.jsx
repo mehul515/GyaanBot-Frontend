@@ -1,11 +1,112 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useRef, useEffect } from "react"
+import React from "react"
 import { Link } from "react-router-dom"
 import { Mail, Lock, Eye, EyeOff, AlertCircle, CheckCircle, Shield } from "lucide-react"
 import { resetPassword } from "@/lib/api"
-import OTPInput from "@/components/Shared/otp-input"
 
+function OTPInput({ value, onChange, disabled = false, length = 6 }) {
+  const inputRefs = useRef([])
+
+  useEffect(() => {
+    // Focus first input on mount
+    if (inputRefs.current[0] && !disabled) {
+      inputRefs.current[0].focus()
+    }
+  }, [disabled])
+
+  const handleChange = (index, inputValue) => {
+    // Only allow single digit
+    const digit = inputValue.replace(/\D/g, "").slice(-1)
+
+    // Update the value
+    const newValue = value.split("")
+    newValue[index] = digit
+    const updatedValue = newValue.join("").slice(0, length)
+    onChange(updatedValue)
+
+    // Auto-focus next input
+    if (digit && index < length - 1) {
+      inputRefs.current[index + 1]?.focus()
+    }
+  }
+
+  const handleKeyDown = (index, e) => {
+    // Handle backspace
+    if (e.key === "Backspace") {
+      if (!value[index] && index > 0) {
+        // If current input is empty, focus previous input
+        inputRefs.current[index - 1]?.focus()
+      } else {
+        // Clear current input
+        const newValue = value.split("")
+        newValue[index] = ""
+        onChange(newValue.join(""))
+      }
+    }
+    // Handle arrow keys
+    else if (e.key === "ArrowLeft" && index > 0) {
+      inputRefs.current[index - 1]?.focus()
+    } else if (e.key === "ArrowRight" && index < length - 1) {
+      inputRefs.current[index + 1]?.focus()
+    }
+    // Handle paste
+    else if (e.key === "Enter") {
+      e.preventDefault()
+    }
+  }
+
+  const handlePaste = (e) => {
+    e.preventDefault()
+    const pastedData = e.clipboardData.getData("text").replace(/\D/g, "").slice(0, length)
+    onChange(pastedData)
+
+    // Focus the next empty input or last input
+    const nextIndex = Math.min(pastedData.length, length - 1)
+    inputRefs.current[nextIndex]?.focus()
+  }
+
+  const handleFocus = (index) => {
+    // Select all text when focusing
+    inputRefs.current[index]?.select()
+  }
+
+  return (
+    <div className="flex justify-center gap-3">
+      {Array.from({ length }, (_, index) => (
+        <input
+          key={index}
+          ref={(el) => (inputRefs.current[index] = el)}
+          type="text"
+          inputMode="numeric"
+          pattern="\d*"
+          maxLength={1}
+          value={value[index] || ""}
+          onChange={(e) => handleChange(index, e.target.value)}
+          onKeyDown={(e) => handleKeyDown(index, e)}
+          onPaste={handlePaste}
+          onFocus={() => handleFocus(index)}
+          disabled={disabled}
+          className={`
+            w-12 h-12 text-center text-lg font-semibold rounded-xl border-2 transition-all duration-200
+            ${
+              disabled
+                ? "bg-gray-100 dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-400 dark:text-gray-500 cursor-not-allowed"
+                : value[index]
+                  ? "bg-emerald-50 dark:bg-emerald-900/20 border-emerald-500 dark:border-emerald-400 text-emerald-700 dark:text-emerald-300 shadow-lg"
+                  : "bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white hover:border-emerald-400 dark:hover:border-emerald-500 focus:border-emerald-500 dark:focus:border-emerald-400 focus:ring-2 focus:ring-emerald-500/20 dark:focus:ring-emerald-400/20"
+            }
+            focus:outline-none
+          `}
+          aria-label={`Digit ${index + 1}`}
+        />
+      ))}
+    </div>
+  )
+}
+
+// Main Reset Password Component
 export default function ResetPassword() {
   const [email, setEmail] = useState("")
   const [otp, setOtp] = useState("")
@@ -147,6 +248,18 @@ export default function ResetPassword() {
             </div>
           )}
         </div>
+
+        {/* Back to Login */}
+        {!success && (
+          <div className="mt-6 text-center">
+            <Link
+              to="/auth/login"
+              className="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 transition-colors"
+            >
+              ← Back to Login
+            </Link>
+          </div>
+        )}
       </div>
     </div>
   )

@@ -1,11 +1,113 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useRef, useEffect } from "react"
+import React from "react"
 import { Link } from "react-router-dom"
 import { Shield, AlertCircle, CheckCircle } from "lucide-react"
 import { verifyEmail } from "@/lib/api"
-import OTPInput from "@/components/Shared/otp-input"
 
+
+function OTPInput({ value, onChange, disabled = false, length = 6 }) {
+  const inputRefs = useRef([])
+
+  useEffect(() => {
+    // Focus first input on mount
+    if (inputRefs.current[0] && !disabled) {
+      inputRefs.current[0].focus()
+    }
+  }, [disabled])
+
+  const handleChange = (index, inputValue) => {
+    // Only allow single digit
+    const digit = inputValue.replace(/\D/g, "").slice(-1)
+
+    // Update the value
+    const newValue = value.split("")
+    newValue[index] = digit
+    const updatedValue = newValue.join("").slice(0, length)
+    onChange(updatedValue)
+
+    // Auto-focus next input
+    if (digit && index < length - 1) {
+      inputRefs.current[index + 1]?.focus()
+    }
+  }
+
+  const handleKeyDown = (index, e) => {
+    // Handle backspace
+    if (e.key === "Backspace") {
+      if (!value[index] && index > 0) {
+        // If current input is empty, focus previous input
+        inputRefs.current[index - 1]?.focus()
+      } else {
+        // Clear current input
+        const newValue = value.split("")
+        newValue[index] = ""
+        onChange(newValue.join(""))
+      }
+    }
+    // Handle arrow keys
+    else if (e.key === "ArrowLeft" && index > 0) {
+      inputRefs.current[index - 1]?.focus()
+    } else if (e.key === "ArrowRight" && index < length - 1) {
+      inputRefs.current[index + 1]?.focus()
+    }
+    // Handle paste
+    else if (e.key === "Enter") {
+      e.preventDefault()
+    }
+  }
+
+  const handlePaste = (e) => {
+    e.preventDefault()
+    const pastedData = e.clipboardData.getData("text").replace(/\D/g, "").slice(0, length)
+    onChange(pastedData)
+
+    // Focus the next empty input or last input
+    const nextIndex = Math.min(pastedData.length, length - 1)
+    inputRefs.current[nextIndex]?.focus()
+  }
+
+  const handleFocus = (index) => {
+    // Select all text when focusing
+    inputRefs.current[index]?.select()
+  }
+
+  return (
+    <div className="flex justify-center gap-3">
+      {Array.from({ length }, (_, index) => (
+        <input
+          key={index}
+          ref={(el) => (inputRefs.current[index] = el)}
+          type="text"
+          inputMode="numeric"
+          pattern="\d*"
+          maxLength={1}
+          value={value[index] || ""}
+          onChange={(e) => handleChange(index, e.target.value)}
+          onKeyDown={(e) => handleKeyDown(index, e)}
+          onPaste={handlePaste}
+          onFocus={() => handleFocus(index)}
+          disabled={disabled}
+          className={`
+            w-12 h-12 text-center text-lg font-semibold rounded-xl border-2 transition-all duration-200
+            ${
+              disabled
+                ? "bg-gray-100 dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-400 dark:text-gray-500 cursor-not-allowed"
+                : value[index]
+                  ? "bg-emerald-50 dark:bg-emerald-900/20 border-emerald-500 dark:border-emerald-400 text-emerald-700 dark:text-emerald-300 shadow-lg"
+                  : "bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white hover:border-emerald-400 dark:hover:border-emerald-500 focus:border-emerald-500 dark:focus:border-emerald-400 focus:ring-2 focus:ring-emerald-500/20 dark:focus:ring-emerald-400/20"
+            }
+            focus:outline-none
+          `}
+          aria-label={`Digit ${index + 1}`}
+        />
+      ))}
+    </div>
+  )
+}
+
+// Main Verify Email Component
 export default function VerifyEmail() {
   const [otp, setOtp] = useState("")
   const [message, setMessage] = useState("")
@@ -24,6 +126,8 @@ export default function VerifyEmail() {
       await verifyEmail({ email, otp })
       setMessage("Email verified successfully!")
       setVerified(true)
+      // Clear the stored email after successful verification
+      localStorage.removeItem("register_email")
     } catch (err) {
       setError(err.response?.data?.message || "Verification failed.")
     } finally {
@@ -32,6 +136,7 @@ export default function VerifyEmail() {
   }
 
   const isOtpComplete = otp.length === 6
+  const storedEmail = localStorage.getItem("register_email")
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-emerald-50 via-teal-50 to-blue-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 p-4">
@@ -45,7 +150,9 @@ export default function VerifyEmail() {
             {verified ? "Email Verified!" : "Verify Your Email"}
           </h1>
           <p className="text-gray-600 dark:text-gray-400">
-            {verified ? "Your account is now ready to use" : "Enter the 6-digit code sent to your email"}
+            {verified
+              ? "Your account is now ready to use"
+              : `Enter the 6-digit code sent to ${storedEmail ? storedEmail.replace(/(.{2}).*(@.*)/, "$1***$2") : "your email"}`}
           </p>
         </div>
 
@@ -58,6 +165,14 @@ export default function VerifyEmail() {
                 <div className="flex items-center gap-3 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/30 rounded-xl">
                   <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400 flex-shrink-0" />
                   <p className="text-sm text-red-700 dark:text-red-300">{error}</p>
+                </div>
+              )}
+
+              {/* Success Message (for resend) */}
+              {message && !verified && (
+                <div className="flex items-center gap-3 p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800/30 rounded-xl">
+                  <CheckCircle className="w-5 h-5 text-green-600 dark:text-green-400 flex-shrink-0" />
+                  <p className="text-sm text-green-700 dark:text-green-300">{message}</p>
                 </div>
               )}
 
@@ -107,17 +222,19 @@ export default function VerifyEmail() {
           )}
 
           {/* Footer */}
-          {!verified && (
-            <div className="mt-6 text-center">
-              <p className="text-sm text-gray-600 dark:text-gray-400">
-                Didn't receive the code?{" "}
-                <button className="font-medium text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-300 transition-colors">
-                  Resend OTP
-                </button>
-              </p>
-            </div>
-          )}
         </div>
+
+        {/* Back to Login */}
+        {!verified && (
+          <div className="mt-6 text-center">
+            <Link
+              to="/auth/login"
+              className="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 transition-colors"
+            >
+              ← Back to Login
+            </Link>
+          </div>
+        )}
       </div>
     </div>
   )

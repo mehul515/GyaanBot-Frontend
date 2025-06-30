@@ -19,7 +19,7 @@ const CreateCourse = () => {
       const courseData = { title, description, isPublic }
       await createCourse(courseData)
       alert("Course created successfully!")
-      navigate("/auth/Dashboard")
+      navigate("/Dashboard")
     } catch (error) {
       console.error(error)
       alert("Failed to create course")
